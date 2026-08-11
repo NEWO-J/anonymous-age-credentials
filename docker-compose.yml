@@ -1,0 +1,72 @@
+name: aac
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aac
+      POSTGRES_PASSWORD: aac
+      POSTGRES_DB: aac
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=512MB"]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aac"]
+      interval: 5s
+      retries: 20
+
+  cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  nullifier:
+    build: ./nullifier
+    environment:
+      DATABASE_URL: postgresql://aac:aac@db:5432/aac
+      NULLIFIER_TOKEN: ${NULLIFIER_TOKEN}
+      DB_CONNECTIONS: ${DB_CONNECTIONS:-16}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+
+  issuer:
+    build: ./issuer
+    environment:
+      DATABASE_URL: postgresql://aac:aac@db:5432/aac
+      IDP_SECRET: ${IDP_SECRET}
+      SUBJECT_PEPPER: ${SUBJECT_PEPPER}
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  verifier:
+    build: ./verifier
+    environment:
+      DATABASE_URL: postgresql://aac:aac@db:5432/aac
+      NULLIFIER_URL: http://nullifier:8081
+      NULLIFIER_TOKEN: ${NULLIFIER_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      nullifier:
+        condition: service_started
+    ports:
+      - "8083:8080"
+
+volumes:
+  dbdata:
