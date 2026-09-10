@@ -109,10 +109,10 @@ Throughput comes from three things:
 Measured with wrk on the compose stack, Docker Desktop on Windows, every request
 carrying a fresh nullifier so all of them reach Postgres:
 
-| connections | throughput | p50 | p90 | p99 | errors |
+| connections | throughput | p50 | p90 | p99 |
 | --- | --- | --- | --- | --- | --- |
-| 16 | 1,571 req/s | 9.37 ms | 16.30 ms | 23.91 ms | 0 |
-| 48 | 3,880 req/s | 13.42 ms | 17.18 ms | 22.86 ms | 0 |
+| 16 | 1,571 req/s | 9.37 ms | 16.30 ms | 23.91 ms |
+| 48 | 3,880 req/s | 13.42 ms | 17.18 ms | 22.86 ms |
 
 ```
 set -a; . ./.env; set +a
