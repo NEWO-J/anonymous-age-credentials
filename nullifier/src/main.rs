@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_postgres::{Client, NoTls, Statement};
 
 const SHARDS: usize = 64;
-const BLOOM_WORDS: usize = 1 << 14; // 1 Mbit per shard
+const BLOOM_WORDS: usize = 1 << 14;
 const BLOOM_HASHES: u64 = 6;
 const BATCH_MAX: usize = 128;
 const MAX_PER_REQUEST: usize = 256;
@@ -85,8 +85,6 @@ impl Store {
         Store { shards }
     }
 
-    // nullifiers are sha256 output so any slice of them is already uniform.
-    // the shard uses the tail, the bloom uses the head, so they do not overlap
     fn shard_of(&self, n: &[u8; 32]) -> usize {
         (n[31] as usize) % SHARDS
     }
@@ -97,7 +95,6 @@ impl Store {
         (a, b)
     }
 
-    // true only when this nullifier is definitely already spent
     fn seen(&self, n: &[u8; 32]) -> bool {
         let (a, b) = Store::bloom_pair(n);
         let shard = self.shards[self.shard_of(n)].lock().unwrap();
@@ -129,8 +126,6 @@ impl Store {
     }
 }
 
-// one worker per database connection. it takes whatever has queued behind the
-// first job and sends it as a single statement, so batches grow under load
 async fn worker(
     mut rx: mpsc::Receiver<Job>,
     client: Client,
@@ -161,8 +156,7 @@ async fn worker(
             }
         };
 
-        // returned rows are the ones that were actually inserted, so they are
-        // the first use. everything else conflicted and is a replay
+        
         let fresh: HashSet<Vec<u8>> = rows.iter().map(|r| r.get::<_, Vec<u8>>(0)).collect();
 
         for job in jobs {
@@ -218,7 +212,7 @@ async fn claim(
     let mut in_request = HashSet::new();
 
     for (i, n) in parsed.iter().enumerate() {
-        // the same nullifier twice in one request is a replay of itself
+       
         if !in_request.insert(*n) || app.store.seen(n) {
             app.stats.cache_hits.fetch_add(1, Ordering::Relaxed);
             results.push((i, false));
@@ -303,8 +297,6 @@ async fn main() {
             }
         });
 
-        // prepared once. passing sql text to query() re-prepares on every call,
-        // which is an extra round trip and a re-plan of a partitioned insert
         let stmt = client.prepare(CLAIM_SQL).await.expect("could not prepare claim");
 
         let (tx, rx) = mpsc::channel(BATCH_MAX * 8);
