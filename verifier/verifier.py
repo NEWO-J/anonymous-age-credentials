@@ -114,7 +114,7 @@ def redeem(
 
     msg = b"aac/credential/v1" + b"\x00" + key_id.encode() + b"\x00" + token_id
 
-    # ordinary PSS verify, the blinding is long gone by this point
+    # ordinary PSS verify
     try:
         key.verify(
             sig,
@@ -127,7 +127,7 @@ def redeem(
 
     nullifier = hashlib.sha256(b"aac/nullifier/v1" + b"\x00" + key_id.encode() + b"\x00" + token_id).hexdigest()
 
-    # verify first, spend second, so junk never reaches the store
+    # verify first, spend second
     try:
         r = session.post(
             f"{nullifier_url}/claim",
