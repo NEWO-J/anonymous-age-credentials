@@ -32,8 +32,7 @@ red = redis.Redis(host="cache", port=6379, db=0)
 limit = 30
 grant_ttl = 300
 
-# the issuer signs a token it never sees, so the only per-person control it has
-# is one grant per subject per epoch
+# one grant per subject per epoch
 def epoch():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m")
 
@@ -97,7 +96,7 @@ def load_key():
         )
         conn.commit()
 
-        # another replica may have won the insert
+        # if another replica may have won the insert
         row = conn.execute("SELECT key_id, pem FROM signing_keys WHERE epoch = %s", (ep,)).fetchone()
         return row[0], serialization.load_pem_private_key(row[1].encode(), password=None)
 
@@ -134,7 +133,6 @@ def challenge(
     if not claims.get("over18"):
         raise HTTPException(status_code=401, detail="Attestation does not assert over18")
 
-    # the raw subject is never stored, only this
     subject = hmac.new(pepper, claims["sub"].encode(), hashlib.sha256).digest()
 
     key_id, key = load_key()
@@ -169,6 +167,7 @@ def challenge(
 
     numbers = key.public_key().public_numbers()
 
+    
     return JSONResponse(content={
         "challenge_id": challenge_id,
         "key_id": key_id,
@@ -189,12 +188,12 @@ def sign(
     if not challenge_id or not blinded:
         raise HTTPException(status_code=400, detail="challenge_id and blinded are required")
 
+    
     try:
         uuid.UUID(challenge_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="challenge_id must be a uuid")
 
-    # single use, decided by the database and not by us
     with pool.connection() as conn:
         row = conn.execute(
             "UPDATE grants SET used = true WHERE challenge_id = %s AND used = false AND expires_at > now() RETURNING key_id",
@@ -216,7 +215,7 @@ def sign(
     if m >= n:
         raise HTTPException(status_code=400, detail="Blinded message is out of range")
 
-    # raw RSA over the blinded value, via CRT. this is the whole signing step
+    
     s1 = pow(m % nums.p, nums.dmp1, nums.p)
     s2 = pow(m % nums.q, nums.dmq1, nums.q)
     h = (nums.iqmp * (s1 - s2)) % nums.p
