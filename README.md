@@ -1,6 +1,6 @@
 # anonymous-age-credentials
 
-<img src="age-credential-diagram" alt="Age credential diagram" width="600"/>
+<img src="age-credential-diagram.png" alt="Age credential diagram" width="600"/>
 
 Age assurance that does not identify anyone. A user proves they are over 18 once,
 gets a credential the issuer cannot read, and spends it exactly once at a
